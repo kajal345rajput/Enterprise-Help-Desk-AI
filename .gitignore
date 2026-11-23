@@ -1,0 +1,27 @@
+# Secret API keys
+.env
+.env.*
+!.env.example
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Database
+*.sqlite3
+
+# Node dependencies
+node_modules/
+
+# Build files
+dist/
+build/
+
+# Editor and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
