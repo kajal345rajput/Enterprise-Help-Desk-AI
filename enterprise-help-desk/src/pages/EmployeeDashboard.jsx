@@ -50,7 +50,7 @@ function EmployeeDashboard() {
         }
 
         const response = await axios.get(
-          "http://127.0.0.1:8000/api/tickets/",
+          `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/api/tickets/`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

@@ -13,6 +13,7 @@ import {
   EyeOff,
 } from "lucide-react";
 
+const API = `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/api`;
 function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,7 +44,7 @@ function Login() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/login/",
+        `${API}/login/`,
         {
           method: "POST",
           headers: {

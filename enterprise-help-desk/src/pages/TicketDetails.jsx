@@ -40,7 +40,7 @@ function TicketDetails() {
       }
 
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/tickets/${id}/`,
+        `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/api/tickets/${id}/`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -84,7 +84,7 @@ function TicketDetails() {
       setSuccess("");
 
       await axios.post(
-        `http://127.0.0.1:8000/api/tickets/${id}/messages/`,
+        `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/api/tickets/${id}/messages/`,
         {
           message: reply.trim(),
           is_internal: false,
