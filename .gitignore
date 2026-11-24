@@ -31,3 +31,10 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+/package.json
+/package-lock.json
+/backend/package.json
+/backend/package-lock.json
+/backend/server.js
+/project-structure.txt
+/backend/package.json
