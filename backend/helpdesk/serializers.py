@@ -1,3 +1,4 @@
+
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
@@ -54,6 +55,7 @@ class TicketMessageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "sender",
+            "ticket",
             "created_at",
         ]
 
@@ -61,7 +63,7 @@ class TicketMessageSerializer(serializers.ModelSerializer):
 class TicketSerializer(serializers.ModelSerializer):
     employee = UserSerializer(read_only=True)
     assigned_to = UserSerializer(read_only=True)
-    messages = TicketMessageSerializer(many=True, read_only=True)
+    messages = serializers.SerializerMethodField()
 
     class Meta:
         model = Ticket
@@ -89,6 +91,21 @@ class TicketSerializer(serializers.ModelSerializer):
             "updated_at",
             "resolved_at",
         ]
+
+    def get_messages(self, obj):
+        request = self.context.get("request")
+
+        messages = obj.messages.select_related("sender").all()
+
+        # Employees must never see internal support notes.
+        if request and hasattr(request.user, "profile"):
+            if request.user.profile.role == "EMPLOYEE":
+                messages = messages.filter(is_internal=False)
+
+        return TicketMessageSerializer(
+            messages,
+            many=True
+        ).data
 
 
 class KnowledgeBaseSerializer(serializers.ModelSerializer):

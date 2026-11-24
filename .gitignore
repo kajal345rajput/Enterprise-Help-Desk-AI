@@ -1,4 +1,4 @@
-# Secret API keys
+﻿# Environment variables and secrets
 .env
 .env.*
 !.env.example
@@ -9,9 +9,11 @@ __pycache__/
 *.py[cod]
 venv/
 .venv/
+.pytest_cache/
 
 # Database
 *.sqlite3
+*.db
 
 # Node dependencies
 node_modules/
@@ -19,6 +21,10 @@ node_modules/
 # Build files
 dist/
 build/
+
+# Logs
+*.log
+npm-debug.log*
 
 # Editor and system files
 .vscode/

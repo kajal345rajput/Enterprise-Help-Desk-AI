@@ -23,6 +23,78 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+const API_BASE_URL = "http://127.0.0.1:8000";
+
+// Automatically refresh an expired access token and retry the request.
+async function authenticatedFetch(url, options = {}) {
+  let accessToken = localStorage.getItem("access_token");
+
+  if (!accessToken) {
+    throw new Error("Your session has expired. Please log in again.");
+  }
+
+  const sendRequest = (token) =>
+    fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+  // First request using the current access token.
+  let response = await sendRequest(accessToken);
+
+  // If unauthorized, try refreshing the access token.
+  if (response.status === 401) {
+    const refreshToken = localStorage.getItem("refresh_token");
+
+    if (!refreshToken) {
+      throw new Error("Your session has expired. Please log in again.");
+    }
+
+    const refreshResponse = await fetch(
+      `${API_BASE_URL}/api/token/refresh/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          refresh: refreshToken,
+        }),
+      }
+    );
+
+    if (!refreshResponse.ok) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+
+      throw new Error("Your session has expired. Please log in again.");
+    }
+
+    const refreshData = await refreshResponse.json();
+
+    if (!refreshData.access) {
+      throw new Error("Unable to refresh your session. Please log in again.");
+    }
+
+    // Save the new access token.
+    accessToken = refreshData.access;
+    localStorage.setItem("access_token", accessToken);
+
+    // Save a new refresh token if rotation is enabled.
+    if (refreshData.refresh) {
+      localStorage.setItem("refresh_token", refreshData.refresh);
+    }
+
+    // Retry the original request with the new token.
+    response = await sendRequest(accessToken);
+  }
+
+  return response;
+}
+
 function AISupport() {
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const displayName = storedUser.username || "Employee";
@@ -56,14 +128,13 @@ function AISupport() {
     setMessage(text);
   };
 
+  // Send a message to the AI Support Agent.
   const handleSend = async () => {
     const userMessage = message.trim();
 
     if (!userMessage || loading || escalating || ticketCreated) return;
 
-    const accessToken = localStorage.getItem("access_token");
-
-    if (!accessToken) {
+    if (!localStorage.getItem("access_token")) {
       alert("Your session has expired. Please log in again.");
       return;
     }
@@ -79,13 +150,12 @@ function AISupport() {
     setEscalationError("");
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/ai/chat/",
+      const response = await authenticatedFetch(
+        `${API_BASE_URL}/api/ai/chat/`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             message: userMessage,
@@ -128,13 +198,11 @@ function AISupport() {
     }
   };
 
-  // Ask the backend to create a support ticket.
+  // Create a support ticket from the conversation.
   const handleEscalate = async () => {
     if (!conversationId || escalating || ticketCreated) return;
 
-    const accessToken = localStorage.getItem("access_token");
-
-    if (!accessToken) {
+    if (!localStorage.getItem("access_token")) {
       setEscalationError("Your session has expired. Please log in again.");
       return;
     }
@@ -143,13 +211,12 @@ function AISupport() {
     setEscalationError("");
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/ai/escalate/",
+      const response = await authenticatedFetch(
+        `${API_BASE_URL}/api/ai/escalate/`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             conversation_id: conversationId,
@@ -177,6 +244,7 @@ function AISupport() {
     }
   };
 
+  // Start a fresh conversation.
   const handleNewConversation = () => {
     setMessages([]);
     setConversationId(null);
@@ -200,7 +268,11 @@ function AISupport() {
       {/* Top navigation */}
       <header className="ai-support-header">
         <div className="ai-support-header-left">
-          <Link to="/dashboard" className="back-dashboard" title="Back to dashboard">
+          <Link
+            to="/dashboard"
+            className="back-dashboard"
+            title="Back to dashboard"
+          >
             <ArrowLeft size={19} />
           </Link>
 
@@ -431,7 +503,9 @@ function AISupport() {
                   </div>
 
                   <div className="ai-message-content">
-                    <div className="message-sender">Support assistance</div>
+                    <div className="message-sender">
+                      Support assistance
+                    </div>
 
                     <div
                       className="ai-message-bubble ai-bot-bubble"
@@ -451,13 +525,16 @@ function AISupport() {
 
                           <button
                             type="button"
-                            onClick={() => setShowEscalationConfirm(true)}
+                            onClick={() =>
+                              setShowEscalationConfirm(true)
+                            }
                             style={{
                               marginTop: "10px",
                               padding: "10px 16px",
                               border: "none",
                               borderRadius: "9px",
-                              background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+                              background:
+                                "linear-gradient(135deg, #2563eb, #7c3aed)",
                               color: "#ffffff",
                               fontWeight: 600,
                               cursor: "pointer",
@@ -478,12 +555,14 @@ function AISupport() {
                             your issue. Do you want to continue?
                           </p>
 
-                          <div style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "10px",
-                            marginTop: "12px",
-                          }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "10px",
+                              marginTop: "12px",
+                            }}
+                          >
                             <button
                               type="button"
                               onClick={handleEscalate}
@@ -492,23 +571,29 @@ function AISupport() {
                                 padding: "10px 16px",
                                 border: "none",
                                 borderRadius: "9px",
-                                background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+                                background:
+                                  "linear-gradient(135deg, #2563eb, #7c3aed)",
                                 color: "#ffffff",
                                 fontWeight: 600,
                                 cursor: escalating ? "wait" : "pointer",
                                 opacity: escalating ? 0.7 : 1,
                               }}
                             >
-                              {escalating ? "Creating ticket..." : "Confirm"}
+                              {escalating
+                                ? "Creating ticket..."
+                                : "Confirm"}
                             </button>
 
                             <button
                               type="button"
-                              onClick={() => setShowEscalationConfirm(false)}
+                              onClick={() =>
+                                setShowEscalationConfirm(false)
+                              }
                               disabled={escalating}
                               style={{
                                 padding: "10px 16px",
-                                border: "1px solid rgba(148,163,184,0.35)",
+                                border:
+                                  "1px solid rgba(148,163,184,0.35)",
                                 borderRadius: "9px",
                                 background: "transparent",
                                 color: "inherit",
@@ -522,10 +607,12 @@ function AISupport() {
                       )}
 
                       {escalationError && (
-                        <p style={{
-                          color: "#f87171",
-                          marginTop: "10px",
-                        }}>
+                        <p
+                          style={{
+                            color: "#f87171",
+                            marginTop: "10px",
+                          }}
+                        >
                           {escalationError}
                         </p>
                       )}
@@ -546,7 +633,9 @@ function AISupport() {
                 </div>
 
                 <div className="ai-message-content">
-                  <div className="message-sender">Support ticket created</div>
+                  <div className="message-sender">
+                    Support ticket created
+                  </div>
 
                   <div className="ai-message-bubble ai-bot-bubble">
                     <p>
@@ -632,7 +721,9 @@ function AISupport() {
                 className="send-message-button"
                 type="button"
                 onClick={handleSend}
-                disabled={loading || !message.trim() || Boolean(ticketCreated)}
+                disabled={
+                  loading || !message.trim() || Boolean(ticketCreated)
+                }
                 title="Send message"
               >
                 <Send size={18} />
@@ -657,7 +748,9 @@ function AISupport() {
               <Sparkles size={23} />
             </div>
 
-            <span className="ai-card-eyebrow">SMART IT ASSISTANCE</span>
+            <span className="ai-card-eyebrow">
+              SMART IT ASSISTANCE
+            </span>
             <h3>Support, powered by AI.</h3>
 
             <p>
@@ -724,7 +817,10 @@ function AISupport() {
 
               <Link to="/tickets/new">
                 Create Support Ticket
-                <ArrowLeft size={14} className="ticket-link-arrow" />
+                <ArrowLeft
+                  size={14}
+                  className="ticket-link-arrow"
+                />
               </Link>
             </div>
           </div>
